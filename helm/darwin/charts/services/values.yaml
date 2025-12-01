@@ -79,6 +79,9 @@ services:
       - name: shared-services-data
         persistentVolumeClaim:
           claimName: darwin-shared-pvc
+    extraEnvVars:
+      - name: DARWIN_MYSQL_DATABASE
+        value: "darwin"
 
   chronos:
     enabled: false

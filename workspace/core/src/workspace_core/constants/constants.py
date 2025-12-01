@@ -6,7 +6,7 @@ CONFIGS_MAP = {
             "host": f"{os.getenv('DARWIN_MYSQL_HOST')}",
             "username": f"{os.getenv('DARWIN_MYSQL_USERNAME')}",
             "password": f"{os.getenv('DARWIN_MYSQL_PASSWORD')}",
-            "database": "main",
+            "database": f"{os.getenv('DARWIN_MYSQL_DATABASE')}",
             "port": "3306",
         },
         "ray_job_location": "s3://local",

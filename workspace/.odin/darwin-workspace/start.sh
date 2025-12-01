@@ -20,4 +20,4 @@ cd app-layer/src/workspace_app_layer
 echo "Starting app layer"
 CORES=$(nproc)
 echo "CORES: $CORES"
-LOG_FILE=$LOG_DIR/workspace.log opentelemetry-instrument uvicorn main:app --host 0.0.0.0 --port 8000 --workers $CORES
+LOG_FILE=$LOG_DIR/workspace.log opentelemetry-instrument uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
