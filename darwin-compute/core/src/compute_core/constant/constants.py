@@ -28,9 +28,9 @@ CONFIGS_MAP = {
         "jupyter_pods_threshold": 1,
         "jupyter_pods_max_idle_time": 5,
         "jupyter_pods_max_creation_time": 300,
-        "init_script_path": "http://localhost:30080/static/",
+        "init_script_path": "http://localhost/static/",
         "init_script_api": "http://darwin-compute.darwin.svc.cluster.local:8000/init-script-status",
-        "host_url": "localhost:30080",
+        "host_url": "localhost",
         "spark_history_server": {
             "s3_events_path": "s3a://darwin/darwin/temp/spark_history_server",
             "efs_events_path": "fsx/spark/eventlogs",

@@ -395,7 +395,7 @@ service:
   type: ClusterIP
 
 grafana:
-  image: "000375658054.dkr.ecr.us-east-1.amazonaws.com/darwin:grafana"
+  image: "localhost:5000/grafana:latest"
   rootPath: "/eks-0/test-metrics/"
   nodeSelector:
     app: default
@@ -405,32 +405,32 @@ prometheus:
   nodeSelector:
     app: default
   remoteWrite:
-    - url: "http://darwin-thanos-receive-uat.dream11.local:10908/api/v1/receive"
+    - url: "http://darwin-thanos:10908/api/v1/receive"
 
 commands: [ ]
 sparkConfig: { }
 
 is_job_cluster: false
-env: stag
+env: local
 user: darwin
 email: darwin@test.com
 cluster_name: test-cluster
 kube_cluster_key: eks-0
-domain: darwin-mlp-stag.d11dev.com
+domain: localhost
 
-TEAM_SUFFIX: "-mlp-stag"
-VPC_SUFFIX: "-stag"
+TEAM_SUFFIX: ""
+VPC_SUFFIX: ""
 
 labels:
   project: darwin
   service: darwin
-  squad: data-science
-  environment: uat
+  squad: darwin
+  environment: local
 
 remoteCommand:
-  statusReportApi: "darwin-mlp-stag.d11dev.com/cluster/command/pod/status"
+  statusReportApi: "localhost/compute/cluster/command/pod/status"
   statusReportInterval: 10
-  logsS3Bucket: "d11-mlstag"
+  logsS3Bucket: "darwin"
   logsS3Key: "mlp/logs/remote-command"
   commands:
     head: [ ]

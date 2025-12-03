@@ -40,7 +40,7 @@ common:
     - name: RAY_GRAFANA_HOST
       value: http://id-test-grafana.prometheus.svc.cluster.local:3000
     - name: RAY_GRAFANA_IFRAME_HOST
-      value: https://localhost:30080/eks-0/id-test-metrics
+      value: https://localhost/eks-0/id-test-metrics
     - name: ENV
       value: id-test
     - name: CREATED_BY
@@ -457,7 +457,7 @@ user: darwin
 email: darwin@darwin.com
 cluster_name: id-test
 kube_cluster_key: eks-0
-domain: localhost:30080
+domain: localhost
 terminate_after_minutes: 60
 cluster_id: id-test
 TEAM_SUFFIX: -uat

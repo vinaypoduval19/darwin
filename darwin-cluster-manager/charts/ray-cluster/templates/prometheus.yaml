@@ -15,8 +15,6 @@ spec:
       ray.io/cluster: {{ .Release.Name }}
   podMonitorNamespaceSelector: {}
   nodeSelector: {{- toYaml .Values.prometheus.nodeSelector | nindent 4 }}
-  imagePullSecrets:
-    - name: dsjfrog-platform
   podMetadata:
     labels: {{ include "ray-cluster.monitoring.labels" . | nindent 6 }}
     annotations:
