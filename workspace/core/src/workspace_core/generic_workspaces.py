@@ -182,25 +182,6 @@ class Workspaces(ABC):
         pass
 
     @abstractmethod
-    def update_sync_location(self, codespace_id: int, sync_location: str):
-        """
-        Updates Sync Location of a codespace
-        :param codespace_id: id of codespace
-        :param sync_location: new sync location of codespace
-        :return:
-        """
-        pass
-
-    @abstractmethod
-    def update_last_sync_time(self, codespace_id: int):
-        """
-        Update Last Sync time of a codespace
-        :param codespace_id: id of codespace
-        :return: result of update query
-        """
-        pass
-
-    @abstractmethod
     def delete_project(self, project_id: int):
         """
         Delete Project and all its codespaces

@@ -19,7 +19,6 @@ from workspace_core.utils.events_mapper import chronos_events_mapper
 from workspace_core.utils.events_utils import EventAPIClient
 from workspace_core.utils.logging_util import get_logger
 from workspace_core.utils.s3_utils import S3Utils
-from workspace_core.utils.get_file_contents import get_file_contents
 from workspace_core.utils.utils import *
 
 logger = get_logger(__name__)
@@ -525,31 +524,6 @@ class WorkspacesSDK(Workspaces):
 
         return result
 
-    def update_sync_location(self, codespace_id: int, sync_location: str):
-        """
-        Updates Sync Location of a codespace
-        :param codespace_id: id of codespace
-        :param sync_location: new sync location of codespace
-        :return:
-        """
-        data = {"sync_location": sync_location, "codespace_id": codespace_id}
-        result, _ = self.dao.update(UPDATE_CODESPACE_SYNC_LOCATION, data)
-        return result
-
-    def update_last_sync_time(self, codespace_id: int):
-        """
-        Update Last Sync time of a codespace
-        :param codespace_id: id of codespace
-        :return: result of update query
-        """
-        codespace = self.codespace_details(codespace_id)
-        data = {"codespace_id": codespace_id}
-        self.dao.update(UPDATE_CODESPACE_LAST_SYNCED_TIME, data)
-
-        data = {"project_id": codespace.project_id}
-        result, _ = self.dao.update(UPDATE_PROJECT_TIME, data)
-        return result
-
     def _delete_from_cluster(self, cluster_id: str, user_id: str, project_name: str = None, codespace_name: str = None):
         url = f"{HTTP}{self.darwin_host_internal}{cluster_id}-dashboard/{RAY_JOB_SUBMIT_URL}"
         cmd_to_run = f"python3 workspace_core/actors/delete_folder.py {user_id}"
@@ -877,14 +851,6 @@ class WorkspacesSDK(Workspaces):
         :param destination_path: Destination path in S3
         """
         return self.s3_client.upload_file(source_path, s3_bucket, destination_path)
-
-    def get_file_contents(self, source_path: str):
-        """
-        Reads json file
-        :param source_path: Path of file to read
-        """
-        file_data = get_file_contents(source_path)
-        return file_data
 
     def get_project_id_and_codespace_id_from_codespace_path(self, user_id: str, project_name: str, codespace_name: str):
         """
