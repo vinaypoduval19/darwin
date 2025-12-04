@@ -9,7 +9,14 @@ data:
     events {
       worker_connections 1024;
     }
+
     http {
+      # WebSocket connection upgrade mapping
+      map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+      }
+
       # Define upstream resolver for dynamic service discovery
       resolver kube-dns.kube-system.svc.cluster.local valid=10s;
 
@@ -52,7 +59,7 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
@@ -60,6 +67,7 @@ data:
           proxy_redirect      off;
           proxy_buffering     off;
           proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
 
         # Redirect without trailing slash to with trailing slash for ray dashboard
@@ -78,7 +86,7 @@ data:
           proxy_pass http://$cluster_id-kuberay-head-svc.{{ .Values.global.rayClusterNamespace }}.svc.cluster.local:8265/$path$is_args$args;
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
@@ -99,13 +107,15 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto  $scheme;
           proxy_redirect      off;
           proxy_buffering     off;
+          proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
 
         # Spark UI - dynamic multi port routing
@@ -119,13 +129,15 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto  $scheme;
           proxy_redirect      off;
           proxy_buffering     off;
+          proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
 
         # Redirect without trailing slash to with trailing slash for vscode
@@ -145,7 +157,7 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
@@ -155,6 +167,8 @@ data:
           proxy_redirect      off;
           proxy_buffering     off;
           proxy_request_buffering off;
+          proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
 
         # Grafana - dynamic routing (different service pattern)
@@ -167,13 +181,15 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto  $scheme;
           proxy_redirect      off;
           proxy_buffering     off;
+          proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
 
         # Livy - dynamic routing
@@ -186,13 +202,15 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto  $scheme;
           proxy_redirect      off;
           proxy_buffering     off;
+          proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
 
         # Thrift - dynamic routing
@@ -205,13 +223,15 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto  $scheme;
           proxy_redirect      off;
           proxy_buffering     off;
+          proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
 
         # Custom services - dynamic routing with port mapping
@@ -235,13 +255,15 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto  $scheme;
           proxy_redirect      off;
           proxy_buffering     off;
+          proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
 
         # Spark History Server - dynamic routing
@@ -254,13 +276,15 @@ data:
 
           proxy_http_version 1.1;
           proxy_set_header Upgrade            $http_upgrade;
-          proxy_set_header Connection         "upgrade";
+          proxy_set_header Connection         $connection_upgrade;
           proxy_set_header Host               $host;
           proxy_set_header X-Real-IP          $remote_addr;
           proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto  $scheme;
           proxy_redirect      off;
           proxy_buffering     off;
+          proxy_read_timeout  86400;
+          proxy_send_timeout  86400;
         }
       }
     }

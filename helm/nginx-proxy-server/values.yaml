@@ -45,9 +45,8 @@ nginx:
 
   # Service configuration
   service:
-    type: NodePort
+    type: ClusterIP
     port: 80
-    nodePort: 30080
     annotations: {}
 
   # Health check probes
@@ -101,13 +100,19 @@ serviceAccount:
   # Image pull secrets for the service account
   imagePullSecrets: []
 
-# Ingress configuration - disabled for local (using NodePort instead)
+# Ingress configuration
 ingress:
-  enabled: false
+  enabled: true
   internal:
-    enabled: false
-    annotations: {}
-    ingressClassName: ""
+    enabled: true
+    ingressClassName: nginx 
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    hosts:
+      - host: localhost
+        paths:
+          - path: "/eks-0(/|$)(.*)"
+            pathType: ImplementationSpecific
 
   external:
     enabled: false

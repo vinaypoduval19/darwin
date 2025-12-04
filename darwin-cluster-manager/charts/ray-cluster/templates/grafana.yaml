@@ -10,8 +10,8 @@ stringData:
     default_timezone = Asia/Kolkata
     [server]
     domain = {{.Values.domain}}
-    root_url = %(protocol)s://%(domain)s:%(http_port)s{{.Values.grafana.rootPath}}
-    serve_from_sub_path = true
+    root_url = %(protocol)s://%(domain)s{{.Values.grafana.rootPath}}
+    serve_from_sub_path = false
     [auth.anonymous]
     enabled = true
     org_name = Main Org.
