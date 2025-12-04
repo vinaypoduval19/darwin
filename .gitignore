@@ -69,6 +69,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!ml-platform-graphql/src/lib/
 lib64/
 parts/
 sdist/
