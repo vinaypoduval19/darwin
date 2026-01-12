@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "service-deployment.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $value := .Values.podAnnotations }}
     {{ $key }}: {{ $value | quote }}
@@ -39,11 +40,95 @@ spec:
       topologySpreadConstraints: {{.Values.topologySpreadConstraints | toYaml | nindent 8 }}
       {{- end }}
       serviceAccountName: darwin
+      {{- if .Values.modelCache.enabled }}
+      initContainers:
+      {{- if eq .Values.modelCache.strategy "emptydir" }}
+      # Init container for emptydir strategy
+      - name: model-downloader
+        image: {{ .Values.modelCache.downloaderImage }}
+        command:
+          - python
+          - /scripts/download_model_emptydir.py
+        env:
+          - name: MODEL_URI
+            value: "{{ .Values.modelCache.modelUri }}"
+          - name: OUTPUT_PATH
+            value: "{{ .Values.modelCache.cachePath }}"
+          - name: MAX_RETRIES
+            value: "{{ .Values.modelCache.maxRetries | default 5 }}"
+          - name: BACKOFF_SECONDS
+            value: "{{ .Values.modelCache.backoffSeconds | default 10 }}"
+          - name: MLFLOW_TRACKING_URI
+            value: {{ .Values.modelCache.trackingUri | quote }}
+          - name: MLFLOW_TRACKING_USERNAME
+            value: {{ .Values.modelCache.trackingUsername | quote }}
+          - name: MLFLOW_TRACKING_PASSWORD
+            value: {{ .Values.modelCache.trackingPassword | quote }}
+        resources:
+          {{- toYaml .Values.modelCache.resources | nindent 10 }}
+        volumeMounts:
+          - name: model-downloader-script
+            mountPath: /scripts
+            readOnly: true
+          - name: model-storage
+            mountPath: {{ .Values.modelCache.cachePath }}
+      {{- else }}
+      # Init container for pvc strategy
+      - name: wait-for-model
+        image: busybox:latest
+        command:
+          - sh
+          - -c
+          - |
+            # Model is stored in subdirectory: /model-cache/<cache-key>/model/MLmodel
+            # due to MLflow download structure
+            echo "⏳ Waiting for model to be cached at {{ .Values.modelCache.cachePath }}/{{ include "service-deployment.modelCacheKey" . }}/model/MLmodel"
+            MODEL_PATH="{{ .Values.modelCache.cachePath }}/{{ include "service-deployment.modelCacheKey" . }}/model/MLmodel"
+            MAX_WAIT=600  # 10 minutes max wait
+            ELAPSED=0
+            
+            # First check if PVC mount is accessible
+            if [ ! -d "{{ .Values.modelCache.cachePath }}" ]; then
+              echo "❌ PVC mount point not accessible. PVC may not be bound."
+              echo "   Check: kubectl get pvc {{ .Values.modelCache.pvcName }} -n {{ .Release.Namespace }}"
+              echo "   Ensure your cluster has a ReadWriteMany storage provisioner."
+              exit 1
+            fi
+            
+            while [ ! -f "$MODEL_PATH" ]; do
+              if [ $ELAPSED -ge $MAX_WAIT ]; then
+                echo "❌ Timeout waiting for model cache after ${MAX_WAIT}s"
+                exit 1
+              fi
+              echo "⏳ Model not ready yet, waiting... (${ELAPSED}s elapsed)"
+              sleep 5
+              ELAPSED=$((ELAPSED + 5))
+            done
+            
+            echo "✅ Model found in cache, proceeding with startup"
+        volumeMounts:
+          - name: model-cache
+            mountPath: {{ .Values.modelCache.cachePath }}
+            readOnly: true
+      {{- end }}
+      {{- end }}
       containers:
       - env:
         {{- range $key, $value := .Values.envs }}
         - name: {{ $key }}
           value: {{ $value | quote }}
+        {{- end }}
+        {{- if .Values.modelCache.enabled }}
+        - name: MODEL_LOCAL_PATH
+          {{- if eq .Values.modelCache.strategy "emptydir" }}
+          value: {{ .Values.modelCache.cachePath }}/model
+          {{- else }}
+          value: {{ .Values.modelCache.cachePath }}/{{ include "service-deployment.modelCacheKey" . }}/model
+          {{- end }}
+        - name: DEPLOYMENT_NAME
+          value: {{ include "service-deployment.fullname" . | quote }}
+        - name: MODEL_URI
+          value: {{ .Values.modelCache.modelUri | quote }}
         {{- end }}
         - name: DD_PROFILING_ENABLED
           value: "true"
@@ -121,6 +206,24 @@ spec:
         command: {{ .Values.command }}
         resources:
 {{ toYaml .Values.resources | indent 12 }}
+        {{- if .Values.modelCache.enabled }}
+        volumeMounts:
+          {{- if eq .Values.modelCache.strategy "emptydir" }}
+          # emptydir strategy: Mount pod-local emptyDir volume
+          # Volume "model-storage" is shared with init container
+          # Model is at root: {{ .Values.modelCache.cachePath }}/
+          - name: model-storage
+            mountPath: {{ .Values.modelCache.cachePath }}
+            readOnly: true
+          {{- else }}
+          # pvc strategy: Mount shared PVC
+          # Volume "model-cache" contains all deployments' models
+          # Model is in subdirectory: {{ .Values.modelCache.cachePath }}/<cache-key>/
+          - name: model-cache
+            mountPath: {{ .Values.modelCache.cachePath }}
+            readOnly: true
+          {{- end }}
+        {{- end }}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
           {{- with .Values.nodeSelector }}
@@ -143,3 +246,21 @@ spec:
       #   runAsGroup: 3000
       #   fsGroup: 0
       terminationGracePeriodSeconds: 30
+      {{- if .Values.modelCache.enabled }}
+      volumes:
+        {{- if eq .Values.modelCache.strategy "emptydir" }}
+        # ConfigMap: Contains download script for init container
+        - name: model-downloader-script
+          configMap:
+            name: {{ template "service-deployment.fullname" . }}-model-downloader
+            defaultMode: 0755
+        # emptyDir: Temporary storage for model (deleted when pod terminates)
+        - name: model-storage
+          emptyDir: {}
+        {{- else }}
+        # PVC: Shared persistent storage across all pods
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: {{ .Values.modelCache.pvcName }}
+        {{- end }}
+      {{- end }}

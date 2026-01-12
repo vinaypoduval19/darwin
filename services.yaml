@@ -145,6 +145,15 @@ applications:
     enabled: true
     env: []
 
+  - application: darwin-workflow
+    base-path: darwin-workflow
+    path: .
+    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    enabled: true
+    env:
+      - name: ENV
+        value: "darwin-local"
+
   - application: darwin-catalog
     base-path: darwin-catalog
     path: .
@@ -158,6 +167,15 @@ ray-images:
   - image-name: ray:2.37.0
     dockerfile-path: darwin-compute/runtimes/cpu/New-Lightweight/Ray2.37_Py3.10
     registry: localhost:5000
+  - image-name: ray:2.53.0
+    dockerfile-path: darwin-compute/runtimes/cpu/Ray2.53.0_Py3.10
+    registry: localhost:5000
+
+darwin-sdk-runtime:
+  enabled: true
+  image-name: ray:2.37.0-darwin-sdk
+  spark-version: "3.5.0"
+  registry: localhost:5000
 
 serve-images:
   - image-name: serve-md-runtime:latest
@@ -197,6 +215,10 @@ datastores:
     image: opensearchproject/opensearch
     tag: "2.11.0"
     enabled: true
+  - name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch
+    tag: "8.6.2"
+    enabled: false
   - name: busybox
     image: busybox
     tag: "1.36"

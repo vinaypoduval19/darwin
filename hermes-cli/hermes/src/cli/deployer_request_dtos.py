@@ -34,6 +34,7 @@ class DeployModelRequest:
     serve_name: str
     artifact_version: str
     model_uri: str
+    storage_strategy: str
     cores: int
     memory: int
     node_capacity: str
@@ -47,7 +48,6 @@ class DeployModelRequest:
 @dataclass
 class UndeployModelRequest:
     serve_name: str
-    artifact_version: str
     env: str
 
     def to_dict(self):

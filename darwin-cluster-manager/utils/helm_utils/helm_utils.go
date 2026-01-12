@@ -159,7 +159,7 @@ func InstallorUpgradeHelmChartWithRetries(kubeConfigPath string, chartPath strin
 			}
 			return nil, nil
 		}
-        // TODO - to load test on high number of clusters, services and remove the time.sleep
+		// TODO - to load test on high number of clusters, services and remove the time.sleep
 		time.Sleep(1 * time.Second) // Wait before deleting the release and retrying
 		logger.Info("Deleting old Helm release to retry installation again that failed due to error", zap.String("release", releaseName), zap.String("namespace", namespace), zap.Error(err))
 		_, err := DeleteHelmRelease(kubeConfigPath, releaseName, namespace)

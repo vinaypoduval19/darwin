@@ -1,0 +1,164 @@
+{{- if .Values.modelCache.enabled }}
+{{/*
+This template manages model download and caching for ML deployments.
+Two strategies are supported: emptydir (per-pod) and pvc (shared cache).
+*/}}
+{{- if eq .Values.modelCache.strategy "pvc" }}
+{{- $pvcName := .Values.modelCache.pvcName | default "ml-model-cache" }}
+{{- $existingPVC := lookup "v1" "PersistentVolumeClaim" .Release.Namespace $pvcName }}
+{{- if and .Values.global (index .Values.global "local-k8s") (not $existingPVC) }}
+---
+# PersistentVolume for local-k8s (Kind) clusters only
+# In production, use a dynamic provisioner that supports ReadWriteMany
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  # PV name includes namespace to allow multiple namespaces to have their own PV
+  name: {{ $pvcName }}-{{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: model-cache
+    app.kubernetes.io/part-of: darwin
+    darwin.namespace: {{ .Release.Namespace }}
+spec:
+  storageClassName: {{ .Values.modelCache.storageClassName | default "shared-services" }}
+  capacity:
+    storage: {{ .Values.modelCache.size | default "50Gi" }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/shared-data/model-cache/{{ .Release.Namespace }}
+    type: DirectoryOrCreate
+{{- end }}
+{{- if not $existingPVC }}
+---
+# PersistentVolumeClaim for shared model cache
+# IMPORTANT: This PVC is NAMESPACE-SCOPED and shared by ALL deployments in this namespace
+# - First deployment in a namespace creates it
+# - Subsequent deployments reuse it (lookup check prevents recreation)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $pvcName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: model-cache
+    app.kubernetes.io/part-of: darwin
+    darwin.cache-type: shared-model-cache
+  annotations:
+    darwin.io/description: "Shared model cache for all ML deployments in {{ .Release.Namespace }} namespace"
+    helm.sh/resource-policy: keep  # Prevent Helm from deleting PVC on uninstall - preserve cached models
+spec:
+  accessModes:
+    - ReadWriteMany  # Required: multiple pods need concurrent access
+  resources:
+    requests:
+      storage: {{ .Values.modelCache.size | default "50Gi" }}
+  {{- if and .Values.global (index .Values.global "local-k8s") }}
+  storageClassName: {{ .Values.modelCache.storageClassName | default "shared-services" }}
+  volumeName: {{ $pvcName }}-{{ .Release.Namespace }}
+  {{- else }}
+  {{- if .Values.modelCache.storageClassName }}
+  storageClassName: {{ .Values.modelCache.storageClassName }}
+  {{- end }}
+  {{- end }}
+{{- else }}
+# PVC {{ $pvcName }} already exists in namespace {{ .Release.Namespace }}, skipping creation
+{{- end }}
+{{- end }}
+---
+# ConfigMap containing model download scripts for both strategies
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "service-deployment.fullname" . }}-model-downloader
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "service-deployment.labels" . | nindent 4 }}
+    app.kubernetes.io/component: model-cache
+data:
+  # Pre-deploy job script (for pvc strategy)
+  download_model.py: |
+{{ .Files.Get "scripts/download_model.py" | indent 4 }}
+  # Init container script (for emptydir strategy)
+  download_model_emptydir.py: |
+{{ .Files.Get "scripts/download_model_emptydir.py" | indent 4 }}
+  # Shared utility module
+  model_utils.py: |
+{{ .Files.Get "scripts/model_utils.py" | indent 4 }}
+  # Cache cleanup script (for CronJob)
+  cleanup_cache.py: |
+{{ .Files.Get "scripts/cleanup_cache.py" | indent 4 }}
+---
+# Model Download Job for PVC strategy
+# Runs in parallel with deployment (NOT a Helm hook) for fast API response
+{{- if eq .Values.modelCache.strategy "pvc" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "service-deployment.fullname" . }}-model-download
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "service-deployment.labels" . | nindent 4 }}
+    app.kubernetes.io/component: model-download
+  annotations:
+    # Note: NOT a Helm hook - runs in parallel with deployment for fast API response
+    # The deployment pods will wait via init container readiness until model is cached
+    "helm.sh/resource-policy": keep
+spec:
+  # Retry up to 3 times if download fails
+  backoffLimit: 3
+  # Fail fast if job takes longer than 10 minutes (prevents hanging deployments)
+  activeDeadlineSeconds: 600
+  # Clean up completed jobs after 1 hour
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "service-deployment.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: model-download
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: darwin
+      containers:
+      - name: model-downloader
+        image: {{ .Values.modelCache.downloaderImage }}
+        command:
+          - python
+          - /scripts/download_model.py
+        env:
+          - name: MODEL_URI
+            value: "{{ .Values.modelCache.modelUri }}"
+          - name: CACHE_PATH
+            value: "{{ .Values.modelCache.cachePath }}"
+          - name: DEPLOYMENT_NAME
+            value: "{{ template "service-deployment.fullname" . }}"
+          - name: MAX_RETRIES
+            value: "{{ .Values.modelCache.maxRetries | default 5 }}"
+          - name: BACKOFF_SECONDS
+            value: "{{ .Values.modelCache.backoffSeconds | default 10 }}"
+          - name: MLFLOW_TRACKING_URI
+            value: {{ .Values.modelCache.trackingUri | quote }}
+          - name: MLFLOW_TRACKING_USERNAME
+            value: {{ .Values.modelCache.trackingUsername | quote }}
+          - name: MLFLOW_TRACKING_PASSWORD
+            value: {{ .Values.modelCache.trackingPassword | quote }}
+        resources:
+          {{- toYaml .Values.modelCache.resources | nindent 10 }}
+        volumeMounts:
+          - name: model-downloader-script
+            mountPath: /scripts
+            readOnly: true
+          - name: model-cache
+            mountPath: {{ .Values.modelCache.cachePath }}
+      volumes:
+        - name: model-downloader-script
+          configMap:
+            name: {{ template "service-deployment.fullname" . }}-model-downloader
+            defaultMode: 0755
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: {{ .Values.modelCache.pvcName }}
+{{- end }}
+{{- end }}
+

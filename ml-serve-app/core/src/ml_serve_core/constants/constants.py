@@ -47,10 +47,3 @@ DEFAULT_RUNTIME = os.getenv("DEFAULT_RUNTIME", f"{CONTAINER_REGISTRY}/{IMAGE_REP
 
 # Workflow serve configuration (only needed if using workflow serves)
 JOB_CLUSTER_RUNTIME = os.getenv("JOB_CLUSTER_RUNTIME", "")
-
-# MLflow Configuration
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "")
-MLFLOW_TRACKING_USERNAME = os.getenv("MLFLOW_TRACKING_USERNAME", "")
-MLFLOW_TRACKING_PASSWORD = os.getenv("MLFLOW_TRACKING_PASSWORD", "")
-
-

@@ -1,0 +1,65 @@
+---
+name: 'darwin-demo'
+tags: ["demo"]
+# Updating Runtime will restart a running cluster
+runtime: '0.0'
+terminate_after_minutes: 30
+cloud_env: 'kind-0'
+
+# Labels for the cluster
+# Special labels:
+#   workspace: 'shared' - Mounts workspace at /home/ray/fsx on both head and worker nodes
+#                         Without this label, workspace is only mounted on the head node
+labels:
+  project: 'darwin'
+  team: 'data-science'
+  # workspace: 'shared'  # Uncomment to enable shared workspace on worker nodes
+
+# Updating Head_Node will restart a running cluster
+head_node:
+  node:
+    cores: 4
+    memory: 8
+    node_capacity_type: 'ondemand'
+
+worker_group:
+  - node:
+      cores: 2
+      memory: 4
+      node_capacity_type: 'spot'
+    min_pods: 1
+    max_pods: 1
+
+# Auto termination policies, can be ignored as set by default
+auto_termination_policies:
+  - policy_name: 'JupyterLabActivity'
+  - policy_name: 'ClusterCPUUsage'
+    params:
+      head_node_cpu_usage_threshold: 100
+      worker_node_cpu_usage_threshold: 5
+    enabled: True
+  - policy_name: 'ActiveRayJob'
+
+advance_config:
+  env_variables: "cluster_name=darwin-demo-cluster\npurpose=demo\nowner=darwin"
+  log_path: ''
+  init_script:
+    - pip install mlflow
+  instance_role: 'darwin-ds-role'
+  ray_start_params:
+    object_store_memory_perc: 5
+    num_cpus_on_head: 2
+
+# Packages to be installed
+packages:
+  - source: 'pypi'
+    body:
+      name: 'tensorflow'
+      version: '2.19.0'
+  - source: 'maven'
+    body:
+      name: 'org.apache.commons:commons-csv'
+      version: '1.14.0'
+      metadata:
+        repository: 'maven'
+        exclusions: 'org.apache.commons:commons-csv'

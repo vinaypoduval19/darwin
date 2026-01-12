@@ -18,6 +18,7 @@ class Config:
         self.feature_store_url = os.getenv("FEATURE_STORE_URL")
         self.ofs_admin_url = os.getenv("OFS_ADMIN_URL")
         self.model_uri = os.getenv("MLFLOW_MODEL_URI")
+        self.model_local_path = os.getenv("MODEL_LOCAL_PATH")
         self.mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
         self.mlflow_tracking_username = os.getenv("MLFLOW_TRACKING_USERNAME")
         self.mlflow_tracking_password = os.getenv("MLFLOW_TRACKING_PASSWORD")
@@ -26,7 +27,15 @@ class Config:
         self._validate_config()
 
     def _validate_config(self):
-        """Validate that required configuration values are set"""
+        """Validate that required configuration values are set.
+
+        If a local path is provided (MODEL_LOCAL_PATH), we can skip MLflow tracking
+        configuration. Otherwise, require the MLflow tracking settings to be present.
+        """
+        if self.model_local_path:
+            # Local path mode: require at least one source (path or uri)
+            return
+
         required_configs = {
             "MLFLOW_MODEL_URI": self.model_uri,
             "MLFLOW_TRACKING_URI": self.mlflow_tracking_uri,
@@ -56,6 +65,10 @@ class Config:
     @property
     def get_model_uri(self):
         return self.model_uri
+
+    @property
+    def get_model_local_path(self):
+        return self.model_local_path
 
     @property
     def get_mlflow_tracking_uri(self):

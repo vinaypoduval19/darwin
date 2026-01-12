@@ -144,3 +144,23 @@ nginx.ingress.kubernetes.io/rewrite-target: /
 nginx.ingress.kubernetes.io/ssl-redirect: "false"
 kubernetes.io/ingress.class: {{ .Values.ingressExt.ingressClass }}
 {{- end }}
+
+{{/*
+Generate model cache key (hash of deployment name + model URI)
+
+Used for PVC strategy to create unique subdirectories for each deployment's model.
+Multiple deployments can share the same PVC without conflicts.
+
+Example: /model-cache/<cache-key>/MLmodel
+
+Cache key format: SHA256(deploymentName:modelUri)
+This ensures:
+  - Same deployment + same model = same cache (reuse)
+  - Different deployment or model = different cache (isolation)
+*/}}
+{{- define "service-deployment.modelCacheKey" -}}
+{{- $deploymentName := (include "service-deployment.fullname" .) -}}
+{{- $modelUri := .Values.modelCache.modelUri -}}
+{{- $combined := (printf "%s:%s" $deploymentName $modelUri) -}}
+{{- sha256sum $combined -}}
+{{- end }}

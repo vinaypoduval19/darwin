@@ -234,6 +234,7 @@ local.properties
 # Visual Studio Code
 # ===========================
 .vscode/*
+pyrightconfig.json
 
 # Local History for Visual Studio Code
 .history/
@@ -344,3 +345,8 @@ kindkubeconfig.yaml
 *-local.yml
 *.local.yaml
 *.local.yml
+
+# ===========================
+# Feature Store
+# ===========================
+feature-store/*/src/main/resources/webroot/*

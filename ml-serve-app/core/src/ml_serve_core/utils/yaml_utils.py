@@ -128,7 +128,15 @@ def generate_fastapi_values_for_one_click_model_deployment(
         memory: int,
         min_replicas: int,
         max_replicas: int,
-        node_capacity_type: str
+        node_capacity_type: str,
+        storage_strategy: str,
+        model_uri: str,
+        model_downloader_image: str,
+        model_cache_pvc_name: str,
+        model_cache_path: str,
+        tracking_uri: str,
+        tracking_username: str,
+        tracking_password: str,
 ) -> dict:
     with pkg_resource.open_text(rs, FASTAPI_VALUES_TEMPLATE_NAME) as stream:
         stream_content = stream.read()
@@ -181,6 +189,19 @@ def generate_fastapi_values_for_one_click_model_deployment(
 
     values['resources'] = update_resource(cores, memory)
     update_node_selector(values, node_capacity_type)
+
+    # Model cache configuration (supports both emptydir and pvc strategies)
+    values['modelCache'] = {
+        'enabled': True,
+        'strategy': storage_strategy,
+        'cachePath': model_cache_path,
+        'modelUri': model_uri,
+        'trackingUri': tracking_uri,
+        'trackingUsername': tracking_username,
+        'trackingPassword': tracking_password,
+        'downloaderImage': model_downloader_image,
+        'pvcName': model_cache_pvc_name
+    }
     return values
 
 

@@ -1,4 +1,11 @@
 ---
+# Global configuration
+global:
+  # Use local Kind storage (hostPath) vs real K8s storage (PVCs)
+  # Defaults to true here so it works out-of-the-box for local testing.
+  # When deploying to production, this value should be overridden to false.
+  local-k8s: true
+
 replicaCount: 1
 logLevel: info
 name: ml-serve-demo
@@ -15,6 +22,57 @@ envs:
   SERVICE_NAME: ml-serve-demo
   TEAM_SUFFIX: ""
   VPC_SUFFIX: ""
+
+# Model caching with flexible strategies
+# - emptydir: Per-pod download via init container (simple, no shared storage needed)
+# - pvc: Shared cache via pre-deploy job (efficient for multiple replicas)
+# - auto: Automatically choose based on model size (requires storage_strategy.py)
+modelCache:
+  enabled: false
+  strategy: emptydir
+  cachePath: /model-cache
+  
+  # Image used for pre-deployment job and cleanup job
+  # MUST include: mlflow and kubernetes Python libraries
+  # The default serve-md-runtime image includes both
+  downloaderImage: localhost:5000/serve-md-runtime:latest
+  
+  # PVC for shared model cache (must be RWX-capable)
+  # When strategy is "pvc", a PVC will be automatically created per-namespace
+  pvcName: ml-model-cache  # Name of the PVC (created automatically when using pvc strategy)
+  size: 50Gi               # Size of the PVC when auto-created
+  # storageClassName: ""   # Optional: specify storage class (uses cluster default if not set)
+  
+  # Pre-deployment job resource limits
+  # These should be sized based on expected model sizes:
+  # - Small models (<1GB):     current defaults are fine
+  # - Medium models (1-5GB):   current defaults sufficient
+  # - Large models (5-20GB):   current defaults sufficient  
+  # - Very large models (>20GB): increase memory to 8-16Gi
+  # 
+  # Memory is needed for:
+  # - MLflow client overhead (~100MB)
+  # - Download buffers (~500MB)
+  # - Staging directory (full model size)
+  # - OS page cache for better I/O
+  #
+  # CPU affects:
+  # - Network I/O throughput
+  # - File system operations
+  # - Decompression if artifacts are compressed
+  resources:
+    requests:
+      cpu: 1         # Higher for faster network/disk I/O
+      memory: 2Gi    # Sufficient for most models
+    limits:
+      cpu: 4         # Allow burst for network/disk I/O
+      memory: 8Gi    # Sufficient for models up to ~20GB
+    # NOTE: For very large models (>20GB), further increase:
+    # - memory: 16Gi (to handle staging + decompression)
+    # - cpu: 4-8 (for faster I/O operations)
+  maxRetries: 5
+  backoffSeconds: 10
+
 image:
   repository: localhost:5000/darwin
   tag: ml_serve_demo
@@ -87,7 +145,7 @@ resources:
     memory: 4G
 nodeSelector:
   karpenter.sh/capacity-type: spot
-  serve: true
+  serve: "true"
 tolerations: []
 affinity: {}
 podAnnotations: {}

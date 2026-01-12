@@ -271,6 +271,10 @@ def deploy_model(
     serve_name: str = typer.Option(..., help="Name of the serve"),
     artifact_version: str = typer.Option(..., help="Version label for the one-click artifact"),
     model_uri: str = typer.Option(..., help="MLflow model URI (e.g., 's3://bucket/path/to/model')"),
+    storage_strategy: str = typer.Option(
+        "auto",
+        help="Storage strategy for model download: auto (default), emptydir, or pvc",
+    ),
     cores: int = typer.Option(..., help="Number of CPU cores (e.g., 4)"),
     memory: int = typer.Option(..., help="Memory in GB (e.g., 8)"),
     node_capacity: str = typer.Option(..., help="Node capacity type (e.g., 'spot')"),
@@ -285,6 +289,7 @@ def deploy_model(
                 serve_name=serve_name,
                 artifact_version=artifact_version,
                 model_uri=model_uri,
+                storage_strategy=storage_strategy,
                 cores=cores,
                 memory=memory,
                 node_capacity=node_capacity,
@@ -299,14 +304,12 @@ def deploy_model(
 @app.command(name="undeploy-model")
 def undeploy_model(
     serve_name: str = typer.Option(..., help="Name of the serve to undeploy"),
-    artifact_version: str = typer.Option(..., help="Version label for the one-click artifact"),
 ):
     """CLI command to undeploy a model serve."""
     try:
         asyncio.run(
             get_deployer(ENV).undeploy_model(
                 serve_name=serve_name,
-                artifact_version=artifact_version,
                 env=ENV,
             )
         )

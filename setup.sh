@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 # Check for init configuration
@@ -295,6 +295,50 @@ while [ $i -lt $serve_image_count ]; do
 done
 
 # ============================================================================
+# BUILD DARWIN SDK RUNTIME IMAGE
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "                 BUILDING DARWIN SDK RUNTIME"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if darwin-sdk-runtime is enabled
+sdk_enabled=$(yq eval '.darwin-sdk-runtime.enabled' "$ENABLED_FILE")
+if [ "$sdk_enabled" = "true" ]; then
+  sdk_image=$(yq eval '.darwin-sdk-runtime.image-name' "$YAML_FILE")
+  sdk_spark_version=$(yq eval '.darwin-sdk-runtime.spark-version' "$YAML_FILE")
+  sdk_registry=$(yq eval '.darwin-sdk-runtime.registry' "$YAML_FILE")
+  
+  # Use local registry if configured
+  if [ -n "$DOCKER_REGISTRY" ]; then
+    sdk_registry="$DOCKER_REGISTRY"
+  fi
+  
+  # Extract tag from image name (e.g., ray:2.37.0-darwin-sdk -> 2.37.0-darwin-sdk)
+  sdk_tag="${sdk_image#*:}"
+  
+  echo ">>> Building Darwin SDK runtime image: $sdk_image"
+  echo "    Spark version: $sdk_spark_version"
+  echo "    Registry: $sdk_registry"
+  
+  # Check if runtime_builder.sh exists
+  if [ -f "darwin-sdk/runtime_builder.sh" ]; then
+    sh darwin-sdk/runtime_builder.sh \
+      --spark-version "$sdk_spark_version" \
+      --tag "$sdk_tag" \
+      --registry "$sdk_registry" \
+      --push
+    echo "✅ Darwin SDK runtime built and pushed: ${sdk_registry}/ray:${sdk_tag}"
+  else
+    echo "❌ darwin-sdk/runtime_builder.sh not found"
+    echo "   Skipping Darwin SDK runtime build"
+  fi
+else
+  echo "⏭️  Skipping Darwin SDK runtime (disabled)"
+fi
+
+# ============================================================================
 # PULL/PUSH DATASTORE IMAGES TO LOCAL REGISTRY
 # ============================================================================
 echo ""
@@ -362,6 +406,44 @@ if [ "$datastore_count" != "0" ] && [ "$datastore_count" != "null" ]; then
   done
 else
   echo "⚠️  No datastores defined in services.yaml"
+fi
+
+# ============================================================================
+# BUILD AIRFLOW IMAGE (if airflow datastore is enabled)
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "                    BUILDING AIRFLOW IMAGE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if airflow is enabled
+airflow_enabled=$(yq eval '.datastores.airflow' "$ENABLED_FILE")
+if [ "$airflow_enabled" = "true" ]; then
+  echo ">>> Building darwin-airflow image..."
+  
+  # Build airflow image using existing script
+  if [ -f "darwin-workflow/build-airflow-image.sh" ]; then
+    cd darwin-workflow
+    bash build-airflow-image.sh || {
+      echo "❌ Failed to build darwin-airflow image"
+      exit 1
+    }
+    cd ..
+    
+    # Load into Kind cluster (required for imagePullPolicy: Never)
+    echo ">>> Loading darwin-airflow image into Kind cluster..."
+    kind load docker-image darwin-airflow:latest || {
+      echo "❌ Failed to load darwin-airflow image into Kind"
+      exit 1
+    }
+    echo "✅ darwin-airflow image built and loaded into Kind"
+  else
+    echo "❌ darwin-workflow/build-airflow-image.sh not found"
+    exit 1
+  fi
+else
+  echo "⏭️  Skipping darwin-airflow image (airflow datastore disabled)"
 fi
 
 # ============================================================================
